@@ -1,0 +1,236 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #2c2c2c;
+    color: #eee;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+#game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    max-width: 900px;
+    width: 100%;
+}
+
+h1 {
+    font-size: 36px;
+    color: #ffd700;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+#status-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    background: #3a3a3a;
+    padding: 14px 32px;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 620px;
+}
+
+#turn-indicator {
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.red-text { color: #ff6b6b; }
+.blue-text { color: #74c0fc; }
+
+#game-message {
+    font-size: 16px;
+    color: #ccc;
+}
+
+#main-area {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 28px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.cemetery {
+    background: #3a3a3a;
+    border-radius: 10px;
+    padding: 16px;
+    min-width: 130px;
+    max-width: 180px;
+    flex: 1;
+}
+
+.cemetery h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.cemetery-pieces {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 28px;
+    justify-content: center;
+    min-height: 50px;
+}
+
+#board {
+    display: grid;
+    grid-template-columns: repeat(6, 78px);
+    grid-template-rows: repeat(6, 78px);
+    gap: 4px;
+    background: #1a1a1a;
+    padding: 8px;
+    border-radius: 10px;
+    user-select: none;
+}
+
+.cell {
+    width: 78px;
+    height: 78px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.05s;
+    position: relative;
+}
+
+.cell:active {
+    transform: scale(0.95);
+}
+
+.cell.covered {
+    background: linear-gradient(135deg, #666, #444);
+    border: 2px solid #555;
+    color: #ddd;
+}
+
+.cell.empty {
+    background: #2a2a2a;
+    border: 2px solid #333;
+}
+
+.cell.red {
+    background: #4a1515;
+    border: 2px solid #ff6b6b;
+}
+
+.cell.blue {
+    background: #152a4a;
+    border: 2px solid #74c0fc;
+}
+
+.cell.heart {
+    background: #4a1530;
+    border: 2px solid #ff8cc8;
+}
+
+.cell.selected {
+    box-shadow: 0 0 0 3px #ffd700;
+    z-index: 1;
+}
+
+.cell.valid-target::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: rgba(80, 220, 100, 0.8);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+#resurrect-panel {
+    background: #3a3a3a;
+    border: 2px solid #ffd700;
+    border-radius: 12px;
+    padding: 20px 32px;
+    text-align: center;
+}
+
+#resurrect-panel h3 {
+    margin-bottom: 14px;
+    color: #ffd700;
+    font-size: 20px;
+}
+
+#resurrect-options {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.resurrect-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    font-size: 18px;
+    border: none;
+    border-radius: 8px;
+    background: #555;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.resurrect-btn:hover {
+    background: #777;
+}
+
+.piece-emoji {
+    font-size: 28px;
+}
+
+#restart-btn {
+    padding: 12px 36px;
+    font-size: 18px;
+    border: none;
+    border-radius: 10px;
+    background: #555;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+#restart-btn:hover {
+    background: #777;
+}
+
+@media (max-width: 700px) {
+    #board {
+        grid-template-columns: repeat(6, 58px);
+        grid-template-rows: repeat(6, 58px);
+        gap: 3px;
+        padding: 6px;
+    }
+    .cell {
+        width: 58px;
+        height: 58px;
+        font-size: 30px;
+    }
+    .cemetery {
+        min-width: 100px;
+        padding: 12px;
+    }
+    h1 { font-size: 28px; }
+    #turn-indicator { font-size: 18px; }
+    #game-message { font-size: 14px; }
+}

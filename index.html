@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>厨房乱斗</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <h1>🍳 厨房乱斗</h1>
+        <div id="status-bar">
+            <div id="turn-indicator">当前回合：<span class="red">红方</span></div>
+            <div id="game-message">点击盖牌翻开，或点击己方翻开棋子移动</div>
+        </div>
+        <div id="main-area">
+            <div id="blue-cemetery" class="cemetery">
+                <h3>🔵 蓝方墓地</h3>
+                <div class="cemetery-pieces"></div>
+            </div>
+            <div id="board"></div>
+            <div id="red-cemetery" class="cemetery">
+                <h3>🔴 红方墓地</h3>
+                <div class="cemetery-pieces"></div>
+            </div>
+        </div>
+        <div id="resurrect-panel" style="display:none;">
+            <h3>❤️ 选择要复活的棋子</h3>
+            <div id="resurrect-options"></div>
+        </div>
+        <button id="restart-btn">重新开始</button>
+    </div>
+    <script src="js/game.js"></script>
+</body>
+</html>
