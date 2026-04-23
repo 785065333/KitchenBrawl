@@ -235,6 +235,44 @@ h1 {
     background: #777;
 }
 
+/* ---------- 加载 ---------- */
+
+#loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    min-height: 100vh;
+    width: 100%;
+}
+
+#loading-screen h2 {
+    font-size: clamp(32px, 8vmin, 48px);
+    color: #ffd700;
+    text-shadow: 0 4px 12px rgba(0,0,0,0.6);
+}
+
+.progress-bar {
+    width: clamp(200px, 50vmin, 320px);
+    height: 12px;
+    background: #444;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+#progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #ffd700;
+    transition: width 0.2s ease-out;
+}
+
+#progress-text {
+    font-size: 16px;
+    color: #aaa;
+}
+
 /* ---------- 菜单 ---------- */
 
 #menu-screen {

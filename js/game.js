@@ -645,8 +645,55 @@ function addToCemetery(piece, side) {
 
 /* ---------- 启动 ---------- */
 
+const IMAGES_TO_PRELOAD = [
+    'image/green_human.jpg',
+    'image/red_human.jpg',
+    'image/green_broom.jpg',
+    'image/red_broom.jpg',
+    'image/green_dog.png',
+    'image/red_dog.png',
+    'image/green_cat.png',
+    'image/red_cat.png',
+    'image/green_mouse.png',
+    'image/red_mouse.png',
+    'image/neutral_roach.png',
+    'image/neutral_heart.png'
+];
+
+function preloadImages(callback) {
+    const total = IMAGES_TO_PRELOAD.length;
+    let loaded = 0;
+
+    function updateProgress() {
+        const percent = Math.round((loaded / total) * 100);
+        const fill = document.getElementById('progress-fill');
+        const text = document.getElementById('progress-text');
+        if (fill) fill.style.width = percent + '%';
+        if (text) text.textContent = percent + '%';
+    }
+
+    if (total === 0) {
+        callback();
+        return;
+    }
+
+    IMAGES_TO_PRELOAD.forEach(src => {
+        const img = new Image();
+        img.onload = () => { loaded++; updateProgress(); if (loaded === total) callback(); };
+        img.onerror = () => { loaded++; updateProgress(); if (loaded === total) callback(); };
+        img.src = src;
+    });
+}
+
+function onAssetsLoaded() {
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('menu-screen').style.display = 'flex';
+}
+
 document.getElementById('restart-btn').addEventListener('click', initGame);
 document.getElementById('modal-restart-btn').addEventListener('click', initGame);
 document.getElementById('btn-single').addEventListener('click', () => startGame('single'));
 document.getElementById('btn-double').addEventListener('click', () => startGame('double'));
 document.getElementById('back-btn').addEventListener('click', backToMenu);
+
+preloadImages(onAssetsLoaded);
