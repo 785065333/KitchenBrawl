@@ -4,11 +4,21 @@ const PIECE_INFO = {
     DOG:    { name: '狗',   emoji: '🐶', level: 4 },
     CAT:    { name: '猫',   emoji: '🐱', level: 3 },
     MOUSE:  { name: '鼠',   emoji: '🐭', level: 2 },
-    ROACH:  { name: '蟑螂', emoji: '🐛', level: 1 },
+    ROACH:  { name: '蟑螂', emoji: '🕷️', level: 1 },
     HEART:  { name: '心',   emoji: '❤️', level: 0 }
 };
 
 const COVERED_EMOJI = '🎴';
+
+const IMAGE_MAP = {
+    HUMAN:  { red: 'image/green_human.jpg',  blue: 'image/red_human.jpg' },
+    BROOM:  { red: 'image/green_broom.jpg',  blue: 'image/red_broom.jpg' },
+    DOG:    { red: 'image/green_dog.png',    blue: 'image/red_dog.png' },
+    CAT:    { red: 'image/green_cat.png',    blue: 'image/red_cat.png' },
+    MOUSE:  { red: 'image/green_mouse.png',  blue: 'image/red_mouse.png' },
+    ROACH:  { red: 'image/neutral_roach.png', blue: 'image/neutral_roach.png' },
+    HEART:  { neutral: 'image/neutral_heart.png' }
+};
 
 const state = {
     board: [],
@@ -18,10 +28,24 @@ const state = {
     selected: null,
     gameOver: false,
     winner: null,
-    pendingResurrect: null
+    pendingResurrect: null,
+    gameMode: 'single'
 };
 
 /* ---------- 初始化 ---------- */
+
+function startGame(mode) {
+    state.gameMode = mode;
+    document.getElementById('menu-screen').style.display = 'none';
+    document.getElementById('game-container').style.display = 'flex';
+    initGame();
+}
+
+function backToMenu() {
+    document.getElementById('game-container').style.display = 'none';
+    document.getElementById('menu-screen').style.display = 'flex';
+    document.getElementById('game-over-modal').style.display = 'none';
+}
 
 function initGame() {
     state.board = generateBoard();
@@ -34,6 +58,7 @@ function initGame() {
     state.pendingResurrect = null;
 
     document.getElementById('resurrect-panel').style.display = 'none';
+    document.getElementById('game-over-modal').style.display = 'none';
 
     initDOM();
     renderBoard();
@@ -108,10 +133,11 @@ function renderCell(r, c) {
         div.textContent = '';
     } else if (cell.piece === 'HEART') {
         div.classList.add('heart');
-        div.textContent = PIECE_INFO.HEART.emoji;
+        div.innerHTML = `<img src="${IMAGE_MAP.HEART.neutral}" alt="heart">`;
     } else {
         const info = PIECE_INFO[cell.piece];
-        div.textContent = info.emoji;
+        const imgPath = IMAGE_MAP[cell.piece][cell.side];
+        div.innerHTML = `<img src="${imgPath}" alt="${info.name}">`;
         if (cell.side === 'red') div.classList.add('red');
         else if (cell.side === 'blue') div.classList.add('blue');
     }
@@ -137,16 +163,17 @@ function renderBoard() {
 
 function onCellClick(r, c) {
     if (state.gameOver) return;
-    if (state.currentTurn !== 'red') return;
+    if (state.gameMode === 'single' && state.currentTurn !== 'red') return;
     if (state.pendingResurrect) return;
 
     const cell = state.board[r][c];
     const selected = state.selected;
+    const mySide = state.currentTurn;
 
     if (!selected) {
         if (!cell.revealed) {
             revealCell(r, c);
-        } else if (cell.side === 'red' && cell.piece !== null) {
+        } else if (cell.side === mySide && cell.piece !== null) {
             state.selected = { r, c };
             renderBoard();
         }
@@ -156,7 +183,7 @@ function onCellClick(r, c) {
             renderBoard();
         } else if (isValidMove(selected.r, selected.c, r, c)) {
             executeMove(selected.r, selected.c, r, c);
-        } else if (cell.revealed && cell.side === 'red' && cell.piece !== null) {
+        } else if (cell.revealed && cell.side === mySide && cell.piece !== null) {
             state.selected = { r, c };
             renderBoard();
         } else {
@@ -209,8 +236,7 @@ function executeMove(fromR, fromC, toR, toC) {
     if (toCell.piece === null) {
         state.board[toR][toC] = { ...fromCell };
         state.board[fromR][fromC] = createEmptyCell();
-        renderCell(fromR, fromC);
-        renderCell(toR, toC);
+        renderBoard();
         endTurn();
     } else {
         resolveBattle(fromR, fromC, toR, toC);
@@ -248,8 +274,7 @@ function resolveBattle(fromR, fromC, toR, toC) {
         state.board[fromR][fromC] = createEmptyCell();
     }
 
-    renderCell(fromR, fromC);
-    renderCell(toR, toC);
+    renderBoard();
     updateCemeteryDisplay();
     endTurn();
 }
@@ -265,7 +290,7 @@ function handleHeart(r, c) {
         renderCell(r, c);
         endTurn();
     } else {
-        if (side === 'red') {
+        if (state.gameMode === 'double' || side === 'red') {
             showResurrectPanel(r, c);
         } else {
             const best = getBestResurrectPiece(cemetery);
@@ -280,7 +305,7 @@ function showResurrectPanel(r, c) {
     const opts = document.getElementById('resurrect-options');
     opts.innerHTML = '';
 
-    const cemetery = state.redCemetery;
+    const cemetery = state.currentTurn === 'red' ? state.redCemetery : state.blueCemetery;
     const counts = {};
     cemetery.forEach(p => { counts[p] = (counts[p] || 0) + 1; });
 
@@ -343,8 +368,11 @@ function aiTurn() {
             return predictBattleResult(attacker, defender) !== 'defender_win';
         });
 
-        if (safeEatMoves.length > 0) {
-            const winMoves = safeEatMoves.filter(m => {
+        // 再筛"安全吃子"：吃完后不会被敌方相邻棋子立刻反杀
+        const secureEatMoves = safeEatMoves.filter(m => isSafeAfterMove(m));
+
+        if (secureEatMoves.length > 0) {
+            const winMoves = secureEatMoves.filter(m => {
                 const attacker = state.board[m.fromR][m.fromC];
                 const defender = state.board[m.toR][m.toC];
                 return predictBattleResult(attacker, defender) === 'attacker_win';
@@ -352,7 +380,6 @@ function aiTurn() {
 
             let pool;
             if (winMoves.length > 0) {
-                // 必胜吃子中，优先吃敌方等级最高的
                 winMoves.sort((a, b) => {
                     const lvlA = PIECE_INFO[state.board[a.toR][a.toC].piece].level;
                     const lvlB = PIECE_INFO[state.board[b.toR][b.toC].piece].level;
@@ -361,8 +388,7 @@ function aiTurn() {
                 const bestLvl = PIECE_INFO[state.board[winMoves[0].toR][winMoves[0].toC].piece].level;
                 pool = winMoves.filter(m => PIECE_INFO[state.board[m.toR][m.toC].piece].level === bestLvl);
             } else {
-                // 只有同归于尽时，优先用己方低级换敌方高级
-                pool = safeEatMoves.slice();
+                pool = secureEatMoves.slice();
                 pool.sort((a, b) => {
                     const aDiff = PIECE_INFO[state.board[a.toR][a.toC].piece].level
                                 - PIECE_INFO[state.board[a.fromR][a.fromC].piece].level;
@@ -371,17 +397,17 @@ function aiTurn() {
                     return bDiff - aDiff;
                 });
             }
-
             const move = pool[Math.floor(Math.random() * pool.length)];
             executeMove(move.fromR, move.fromC, move.toR, move.toC);
             return;
         }
 
         const emptyMoves = moves.filter(m => state.board[m.toR][m.toC].piece === null);
-        if (emptyMoves.length > 0) {
-            // 1) 优先"逼近"：移动后下一步能必胜吃敌方棋子，按目标等级排序
+        const safeEmptyMoves = emptyMoves.filter(m => isSafeAfterMove(m));
+
+        if (safeEmptyMoves.length > 0) {
             const approachMoves = [];
-            for (const m of emptyMoves) {
+            for (const m of safeEmptyMoves) {
                 const movingPiece = state.board[m.fromR][m.fromC];
                 let bestTargetLevel = 0;
                 const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
@@ -396,9 +422,7 @@ function aiTurn() {
                         }
                     }
                 }
-                if (bestTargetLevel > 0) {
-                    approachMoves.push({ move: m, score: bestTargetLevel });
-                }
+                if (bestTargetLevel > 0) approachMoves.push({ move: m, score: bestTargetLevel });
             }
             if (approachMoves.length > 0) {
                 approachMoves.sort((a, b) => b.score - a.score);
@@ -409,12 +433,10 @@ function aiTurn() {
                 return;
             }
 
-            // 2) 其次"逃跑"：当前位置旁边有能赢自己的敌方棋子，且移动后能脱离危险
             const escapeMoves = [];
-            for (const m of emptyMoves) {
+            for (const m of safeEmptyMoves) {
                 const movingPiece = state.board[m.fromR][m.fromC];
                 const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-                // 当前位置是否危险
                 let inDanger = false;
                 for (const [dr, dc] of dirs) {
                     const nr = m.fromR + dr, nc = m.fromC + dc;
@@ -426,20 +448,7 @@ function aiTurn() {
                         }
                     }
                 }
-                if (!inDanger) continue;
-                // 新位置是否安全
-                let stillDanger = false;
-                for (const [dr, dc] of dirs) {
-                    const nr = m.toR + dr, nc = m.toC + dc;
-                    if (nr < 0 || nr >= 6 || nc < 0 || nc >= 6) continue;
-                    const neighbor = state.board[nr][nc];
-                    if (neighbor.revealed && neighbor.piece !== null && neighbor.side !== 'blue' && neighbor.side !== 'neutral') {
-                        if (predictBattleResult(neighbor, movingPiece) === 'attacker_win') {
-                            stillDanger = true; break;
-                        }
-                    }
-                }
-                if (!stillDanger) escapeMoves.push(m);
+                if (inDanger) escapeMoves.push(m);
             }
             if (escapeMoves.length > 0) {
                 const move = escapeMoves[Math.floor(Math.random() * escapeMoves.length)];
@@ -447,12 +456,19 @@ function aiTurn() {
                 return;
             }
 
-            // 3) 都没满足，再随机移动
+            const move = safeEmptyMoves[Math.floor(Math.random() * safeEmptyMoves.length)];
+            executeMove(move.fromR, move.fromC, move.toR, move.toC);
+            return;
+        }
+
+        // 没有安全移动，走危险移动也比卡住强
+        if (emptyMoves.length > 0) {
             const move = emptyMoves[Math.floor(Math.random() * emptyMoves.length)];
             executeMove(move.fromR, move.fromC, move.toR, move.toC);
             return;
         }
 
+        // 翻牌
         const covered = [];
         for (let r = 0; r < 6; r++) {
             for (let c = 0; c < 6; c++) {
@@ -462,7 +478,12 @@ function aiTurn() {
         if (covered.length > 0) {
             const cell = covered[Math.floor(Math.random() * covered.length)];
             revealCell(cell.r, cell.c);
+            return;
         }
+
+        // 兜底：理论上走不到这里，因为 hasAnyAction 会拦截
+        // 但如果走到了，强制结束回合避免卡死
+        endTurn();
     }, 500);
 }
 
@@ -483,6 +504,23 @@ function getAllLegalMoves(side) {
         }
     }
     return moves;
+}
+
+function isSafeAfterMove(move) {
+    const attacker = state.board[move.fromR][move.fromC];
+    const newR = move.toR, newC = move.toC;
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    for (const [dr, dc] of dirs) {
+        const nr = newR + dr, nc = newC + dc;
+        if (nr < 0 || nr >= 6 || nc < 0 || nc >= 6) continue;
+        const neighbor = state.board[nr][nc];
+        if (neighbor.revealed && neighbor.piece !== null && neighbor.side !== attacker.side && neighbor.side !== 'neutral') {
+            if (predictBattleResult(neighbor, attacker) === 'attacker_win') {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 function predictBattleResult(attacker, defender) {
@@ -520,7 +558,7 @@ function endTurn() {
 
     updateStatus();
 
-    if (state.currentTurn === 'blue') {
+    if (state.currentTurn === 'blue' && state.gameMode === 'single') {
         aiTurn();
     }
 }
@@ -560,9 +598,16 @@ function checkGameOver() {
 function endGame(winner) {
     state.gameOver = true;
     state.winner = winner;
-    const msg = winner === 'draw' ? '平局！' : (winner === 'red' ? '🔴 红方获胜！' : '🔵 蓝方获胜！');
+    state.selected = null;
+    renderBoard();
+
+    const msg = winner === 'draw' ? '平局！' : (winner === 'blue' ? '🔴 红方获胜！' : '🟢 绿方获胜！');
     document.getElementById('game-message').textContent = msg;
     document.getElementById('turn-indicator').innerHTML = `游戏结束：${msg}`;
+
+    const modal = document.getElementById('game-over-modal');
+    document.getElementById('modal-result').textContent = msg;
+    modal.style.display = 'flex';
 }
 
 /* ---------- UI 更新 ---------- */
@@ -570,12 +615,13 @@ function endGame(winner) {
 function updateStatus() {
     const turnEl = document.getElementById('turn-indicator');
     const msgEl = document.getElementById('game-message');
-    if (state.currentTurn === 'red') {
-        turnEl.innerHTML = '当前回合：<span class="red-text">🔴 红方</span>';
-        msgEl.textContent = state.gameOver ? msgEl.textContent : '点击盖牌翻开，或点击己方翻开棋子移动';
+    if (state.gameOver) return;
+    if (state.currentTurn === 'blue') {
+        turnEl.innerHTML = '当前回合：<span class="ai-text">🔴 红方</span>';
+        msgEl.textContent = state.gameMode === 'single' ? 'AI 思考中...' : '红方回合：点击盖牌翻开，或点击己方翻开棋子移动';
     } else {
-        turnEl.innerHTML = '当前回合：<span class="blue-text">🔵 蓝方（AI）</span>';
-        if (!state.gameOver) msgEl.textContent = 'AI 思考中...';
+        turnEl.innerHTML = '当前回合：<span class="player-text">🟢 绿方</span>';
+        msgEl.textContent = '点击盖牌翻开，或点击己方翻开棋子移动';
     }
 }
 
@@ -600,4 +646,7 @@ function addToCemetery(piece, side) {
 /* ---------- 启动 ---------- */
 
 document.getElementById('restart-btn').addEventListener('click', initGame);
-initGame();
+document.getElementById('modal-restart-btn').addEventListener('click', initGame);
+document.getElementById('btn-single').addEventListener('click', () => startGame('single'));
+document.getElementById('btn-double').addEventListener('click', () => startGame('double'));
+document.getElementById('back-btn').addEventListener('click', backToMenu);

@@ -7,7 +7,16 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div id="game-container">
+    <div id="menu-screen">
+        <h1>🍳 厨房乱斗</h1>
+        <div class="menu-desc">暗棋对战 · 翻牌走子 · 复活决胜</div>
+        <div class="menu-buttons">
+            <button id="btn-single">🤖 单人模式（vs AI）</button>
+            <button id="btn-double">👥 双人对战</button>
+        </div>
+    </div>
+
+    <div id="game-container" style="display:none;">
         <h1>🍳 厨房乱斗</h1>
         <div id="status-bar">
             <div id="turn-indicator">当前回合：<span class="red">红方</span></div>
@@ -15,17 +24,17 @@
         </div>
         <div id="rules">
             每回合只能翻牌或移动一次。<br>
-            克制：👤＞🧹＞🐶＞🐱＞🐭＞🐛，🐛 克 👤，同级同归于尽。<br>
+            克制：👤＞🧹＞🐶＞🐱＞🐭＞🕷️，🕷️ 克 👤，同级同归于尽。<br>
             翻 ❤️ 可从墓地复活一枚棋子。
         </div>
         <div id="main-area">
             <div id="blue-cemetery" class="cemetery">
-                <h3>🔵 蓝方墓地</h3>
+                <h3>🔴 红方墓地</h3>
                 <div class="cemetery-pieces"></div>
             </div>
             <div id="board"></div>
             <div id="red-cemetery" class="cemetery">
-                <h3>🔴 红方墓地</h3>
+                <h3>🟢 绿方墓地</h3>
                 <div class="cemetery-pieces"></div>
             </div>
         </div>
@@ -33,7 +42,18 @@
             <h3>❤️ 选择要复活的棋子</h3>
             <div id="resurrect-options"></div>
         </div>
-        <button id="restart-btn">重新开始</button>
+
+        <div id="game-over-modal" style="display:none;">
+            <div class="modal-content">
+                <div id="modal-result"></div>
+                <button id="modal-restart-btn">再来一局</button>
+            </div>
+        </div>
+
+        <div class="game-bottom-btns">
+            <button id="restart-btn">重新开始</button>
+            <button id="back-btn">← 返回主菜单</button>
+        </div>
     </div>
     <script src="js/game.js"></script>
 </body>
