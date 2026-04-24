@@ -29,7 +29,8 @@ const state = {
     gameOver: false,
     winner: null,
     pendingResurrect: null,
-    gameMode: 'single'
+    gameMode: 'single',
+    busy: false
 };
 
 /* ---------- 初始化 ---------- */
@@ -163,6 +164,7 @@ function renderBoard() {
 
 function onCellClick(r, c) {
     if (state.gameOver) return;
+    if (state.busy) return;
     if (state.gameMode === 'single' && state.currentTurn !== 'red') return;
     if (state.pendingResurrect) return;
 
@@ -203,6 +205,12 @@ function revealCell(r, c) {
     cell.revealed = true;
     renderCell(r, c);
 
+    const div = document.getElementById(`cell-${r}-${c}`);
+    if (div) {
+        div.classList.add('flip-anim');
+        setTimeout(() => div.classList.remove('flip-anim'), 300);
+    }
+
     if (cell.piece === 'HEART') {
         handleHeart(r, c);
     } else {
@@ -227,6 +235,39 @@ function isValidMove(fromR, fromC, toR, toC) {
     return true;
 }
 
+function getPieceImagePath(cell) {
+    if (!cell.piece) return null;
+    if (cell.piece === 'HEART') return IMAGE_MAP.HEART.neutral;
+    return IMAGE_MAP[cell.piece][cell.side];
+}
+
+function animateMove(fromR, fromC, toR, toC, imgPath, callback) {
+    const fromDiv = document.getElementById(`cell-${fromR}-${fromC}`);
+    const toDiv = document.getElementById(`cell-${toR}-${toC}`);
+    if (!fromDiv || !toDiv || !imgPath) { callback(); return; }
+
+    const fromRect = fromDiv.getBoundingClientRect();
+    const toRect = toDiv.getBoundingClientRect();
+
+    const ghost = document.createElement('div');
+    ghost.className = 'move-ghost';
+    ghost.style.left = fromRect.left + 'px';
+    ghost.style.top = fromRect.top + 'px';
+    ghost.style.width = fromRect.width + 'px';
+    ghost.style.height = fromRect.height + 'px';
+    ghost.innerHTML = `<img src="${imgPath}" alt="">`;
+    document.body.appendChild(ghost);
+
+    requestAnimationFrame(() => {
+        ghost.style.transform = `translate(${toRect.left - fromRect.left}px, ${toRect.top - fromRect.top}px)`;
+    });
+
+    setTimeout(() => {
+        ghost.remove();
+        callback();
+    }, 250);
+}
+
 function executeMove(fromR, fromC, toR, toC) {
     const fromCell = state.board[fromR][fromC];
     const toCell = state.board[toR][toC];
@@ -234,10 +275,14 @@ function executeMove(fromR, fromC, toR, toC) {
     state.selected = null;
 
     if (toCell.piece === null) {
+        const imgPath = getPieceImagePath(fromCell);
         state.board[toR][toC] = { ...fromCell };
         state.board[fromR][fromC] = createEmptyCell();
         renderBoard();
-        endTurn();
+
+        animateMove(fromR, fromC, toR, toC, imgPath, () => {
+            endTurn();
+        });
     } else {
         resolveBattle(fromR, fromC, toR, toC);
     }
@@ -276,7 +321,31 @@ function resolveBattle(fromR, fromC, toR, toC) {
 
     renderBoard();
     updateCemeteryDisplay();
-    endTurn();
+
+    if (result === 'attacker_win') {
+        const imgPath = getPieceImagePath(attacker);
+        animateMove(fromR, fromC, toR, toC, imgPath, () => {
+            const toDiv = document.getElementById(`cell-${toR}-${toC}`);
+            if (toDiv) {
+                toDiv.classList.add('pop-anim');
+                setTimeout(() => toDiv.classList.remove('pop-anim'), 250);
+            }
+            endTurn();
+        });
+    } else if (result === 'draw') {
+        const imgPath = getPieceImagePath(attacker);
+        animateMove(fromR, fromC, toR, toC, imgPath, () => {
+            const fromDiv = document.getElementById(`cell-${fromR}-${fromC}`);
+            const toDiv = document.getElementById(`cell-${toR}-${toC}`);
+            if (fromDiv) { fromDiv.classList.add('shake-anim'); setTimeout(() => fromDiv.classList.remove('shake-anim'), 200); }
+            if (toDiv)   { toDiv.classList.add('shake-anim'); setTimeout(() => toDiv.classList.remove('shake-anim'), 200); }
+            endTurn();
+        });
+    } else {
+        const fromDiv = document.getElementById(`cell-${fromR}-${fromC}`);
+        if (fromDiv) { fromDiv.classList.add('shake-anim'); setTimeout(() => fromDiv.classList.remove('shake-anim'), 200); }
+        endTurn();
+    }
 }
 
 /* ---------- 心 / 复活 ---------- */
@@ -286,9 +355,13 @@ function handleHeart(r, c) {
     const cemetery = side === 'red' ? state.redCemetery : state.blueCemetery;
 
     if (cemetery.length === 0) {
-        state.board[r][c] = createEmptyCell();
-        renderCell(r, c);
-        endTurn();
+        state.busy = true;
+        setTimeout(() => {
+            state.board[r][c] = createEmptyCell();
+            renderCell(r, c);
+            state.busy = false;
+            endTurn();
+        }, 500);
     } else {
         if (state.gameMode === 'double' || side === 'red') {
             showResurrectPanel(r, c);
@@ -661,8 +734,15 @@ const IMAGES_TO_PRELOAD = [
 ];
 
 function preloadImages(callback) {
+    const startTime = Date.now();
     const total = IMAGES_TO_PRELOAD.length;
     let loaded = 0;
+
+    function tryCallback() {
+        const elapsed = Date.now() - startTime;
+        const remain = Math.max(0, 1000 - elapsed);
+        setTimeout(callback, remain);
+    }
 
     function updateProgress() {
         const percent = Math.round((loaded / total) * 100);
@@ -673,14 +753,14 @@ function preloadImages(callback) {
     }
 
     if (total === 0) {
-        callback();
+        tryCallback();
         return;
     }
 
     IMAGES_TO_PRELOAD.forEach(src => {
         const img = new Image();
-        img.onload = () => { loaded++; updateProgress(); if (loaded === total) callback(); };
-        img.onerror = () => { loaded++; updateProgress(); if (loaded === total) callback(); };
+        img.onload = () => { loaded++; updateProgress(); if (loaded === total) tryCallback(); };
+        img.onerror = () => { loaded++; updateProgress(); if (loaded === total) tryCallback(); };
         img.src = src;
     });
 }
