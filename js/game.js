@@ -444,6 +444,14 @@ function aiTurn() {
         // 再筛"安全吃子"：吃完后不会被敌方相邻棋子立刻反杀
         const secureEatMoves = safeEatMoves.filter(m => isSafeAfterMove(m));
 
+        // 提前计算场上盖牌，后面多处要用
+        const covered = [];
+        for (let r = 0; r < 6; r++) {
+            for (let c = 0; c < 6; c++) {
+                if (!state.board[r][c].revealed) covered.push({ r, c });
+            }
+        }
+
         if (secureEatMoves.length > 0) {
             const winMoves = secureEatMoves.filter(m => {
                 const attacker = state.board[m.fromR][m.fromC];
@@ -479,6 +487,13 @@ function aiTurn() {
         const safeEmptyMoves = emptyMoves.filter(m => isSafeAfterMove(m));
 
         if (safeEmptyMoves.length > 0) {
+            // 有安全移动时，35% 概率选择翻牌（如果有盖牌），避免一味走路
+            if (covered.length > 0 && Math.random() < 0.35) {
+                const cell = covered[Math.floor(Math.random() * covered.length)];
+                revealCell(cell.r, cell.c);
+                return;
+            }
+
             const approachMoves = [];
             for (const m of safeEmptyMoves) {
                 const movingPiece = state.board[m.fromR][m.fromC];
@@ -542,12 +557,6 @@ function aiTurn() {
         }
 
         // 翻牌
-        const covered = [];
-        for (let r = 0; r < 6; r++) {
-            for (let c = 0; c < 6; c++) {
-                if (!state.board[r][c].revealed) covered.push({ r, c });
-            }
-        }
         if (covered.length > 0) {
             const cell = covered[Math.floor(Math.random() * covered.length)];
             revealCell(cell.r, cell.c);
@@ -581,7 +590,14 @@ function getAllLegalMoves(side) {
 
 function isSafeAfterMove(move) {
     const attacker = state.board[move.fromR][move.fromC];
+    const defender = state.board[move.toR][move.toC];
     const newR = move.toR, newC = move.toC;
+
+    // 蟑螂吃人：1级换6级，哪怕吃完被反杀也是血赚，直接认为安全
+    if (attacker.piece === 'ROACH' && defender.piece === 'HUMAN') {
+        return true;
+    }
+
     const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
     for (const [dr, dc] of dirs) {
         const nr = newR + dr, nc = newC + dc;
